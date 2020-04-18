@@ -557,65 +557,46 @@ int main(void) {
 #endif
   // Skip all logic and run bootloader if MCUSR is cleared (application request)
   if (ch != 0) {
-      /*
-       * To run the boot loader, External Reset Flag must be set.
-       * If not, we could make shortcut and jump directly to application code.
-       * Also WDRF set with EXTRF is a result of Optiboot timeout, so we
-       * shouldn't run bootloader in loop :-) That's why:
-       *  1. application is running if WDRF is cleared
-       *  2. we clear WDRF if it's set with EXTRF to avoid loops
-       * One problematic scenario: broken application code sets watchdog timer 
-       * without clearing MCUSR before and triggers it quickly. But it's
-       * recoverable by power-on with pushed reset button.
-       */
-      if ((ch & (_BV(WDRF) | _BV(EXTRF))) != _BV(EXTRF)) { 
-	  if (ch & _BV(EXTRF)) {
-	      /*
-	       * Clear WDRF because it was most probably set by wdr in bootloader.
-	       * It's also needed to avoid loop by broken application which could
-	       * prevent entering bootloader.
-	       * '&' operation is skipped to spare few bytes as bits in MCUSR
-	       * can only be cleared.
-	       */
+    if (ch & _BV(WDRF)) {
 #if defined(__AVR_ATmega8515__) || defined(__AVR_ATmega8535__) ||	\
     defined(__AVR_ATmega16__)   || defined(__AVR_ATmega162__) ||	\
     defined(__AVR_ATmega128__)
-               // Fix missing definitions in avr-libc
-	      MCUCSR = ~(_BV(WDRF));
+      MCUCSR &= ~(_BV(PORF) | _BV(WDRF));
 #else
-	      MCUSR = ~(_BV(WDRF));
+      MCUSR &= ~(_BV(PORF) | _BV(WDRF));
 #endif
-	  }
-	  /* 
-	   * save the reset flags in the designated register
-	   * This can be saved in a main program by putting code in .init0 (which
-	   * executes before normal c init code) to save R2 to a global variable.
-	   */
-	  __asm__ __volatile__ ("mov r2, %0\n" :: "r" (ch));
+    }
+    if (!(ch & _BV(PORF))) {
+      /* 
+       * save the reset flags in the designated register
+       * This can be saved in a main program by putting code in .init0 (which
+       * executes before normal c init code) to save R2 to a global variable.
+       */
+      __asm__ __volatile__ ("mov r2, %0\n" :: "r" (ch));
 
-	  // switch off watchdog
-	  watchdogConfig(WATCHDOG_OFF);
-	  // Note that appstart_vec is defined so that this works with either
-	  // real or virtual boot partitions.
-	   __asm__ __volatile__ (
-	    // Jump to 'save' or RST vector
+      // switch off watchdog
+      watchdogConfig(WATCHDOG_OFF);
+      // Note that appstart_vec is defined so that this works with either
+      // real or virtual boot partitions.
+      __asm__ __volatile__ (
+        // Jump to 'save' or RST vector
 #ifdef VIRTUAL_BOOT_PARTITION
-	    // full code version for virtual boot partition
-	    "ldi r30,%[rstvec]\n"
-	    "clr r31\n"
-	    "ijmp\n"::[rstvec] "M"(appstart_vec)
+        // full code version for virtual boot partition
+        "ldi r30,%[rstvec]\n"
+        "clr r31\n"
+        "ijmp\n"::[rstvec] "M"(appstart_vec)
 #else
 #ifdef RAMPZ
-	    // use absolute jump for devices with lot of flash
-	    "jmp 0\n"::
+        // use absolute jump for devices with lot of flash
+        "jmp 0\n"::
 #else
-	    // use rjmp to go around end of flash to address 0
-	    // it uses fact that optiboot_version constant is 2 bytes before end of flash
-	    "rjmp optiboot_version+2\n"
+        // use rjmp to go around end of flash to address 0
+        // it uses fact that optiboot_version constant is 2 bytes before end of flash
+        "rjmp optiboot_version+2\n"
 #endif //RAMPZ
 #endif //VIRTUAL_BOOT_PARTITION
-	  );
-      }
+      );
+    }
   }
 
 #if LED_START_FLASHES > 0
@@ -653,8 +634,7 @@ int main(void) {
   #endif // mega8/etc
 #endif // soft_uart
 
-  // Set up watchdog to trigger after 1s
-  watchdogConfig(WATCHDOG_1S);
+  watchdogConfig(WATCHDOG_2S);
 
 #if (LED_START_FLASHES > 0) || defined(LED_DATA_FLASH) || defined(LED_START_ON)
   /* Set LED pin as output */
