@@ -170,7 +170,7 @@ ifdef BAUD_RATE
 BAUD_RATE_CMD = -DBAUD_RATE=$(BAUD_RATE)
 dummy = FORCE
 else
-BAUD_RATE_CMD = -DBAUD_RATE=115200
+BAUD_RATE_CMD = -DBAUD_RATE=38400
 endif
 
 HELPTEXT += "Option LED=B3                - set LED pin to particular port/bit\n"

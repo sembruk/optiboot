@@ -661,6 +661,8 @@ int main(void) {
     /* get character from UART */
     ch = getch();
 
+    watchdogConfig(WATCHDOG_8S);
+
     if(ch == STK_GET_PARAMETER) {
       unsigned char which = getch();
       verifySpace();

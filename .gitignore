@@ -1,0 +1,4 @@
+*.swp
+*.elf
+baudcheck.tmp.sh
+tags
